@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodePulse - coding rhythm, visualized</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#020617',
+                        glassbg: 'rgba(15, 23, 42, 0.6)',
+                        glassborder: 'rgba(255, 255, 255, 0.05)',
+                        pulseindigo: '#6366f1',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts Inter & Fira Code -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN for Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glass-panel-heavy {
+            background: rgba(8, 12, 26, 0.98);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .tooltip {
+            position: relative;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 150px;
+            background-color: #020617;
+            color: #f8fafc;
+            text-align: center;
+            border-radius: 6px;
+            padding: 6px 8px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%; 
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+            pointer-events: none;
+            font-size: 0.72rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .glowing-ring {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.12);
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <header class="glass-panel sticky top-0 z-40 w-full px-6 py-4 flex items-center justify-between border-b border-glassborder">
+        <div class="flex items-center space-x-3">
+            <div class="p-1.5 bg-indigo-600/10 rounded-xl border border-indigo-500/30 flex items-center justify-center">
+                <img src="https://raw.githubusercontent.com/naemazam/CodePulse/main/asset/logo.png" alt="CodePulse Logo" class="w-7 h-7 object-contain animate-pulse" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <i data-lucide="activity" class="w-7 h-7 text-indigo-400 animate-pulse hidden"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">CodePulse</h1>
+                    <span class="text-[9px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-mono border border-indigo-500/30">Live Engine</span>
+                </div>
+                <p class="text-xs text-indigo-400/80 font-mono tracking-wider">coding rhythm, visualized</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <div class="hidden md:flex flex-col items-end text-right pr-4 border-r border-slate-800">
+                <span id="digital-clock" class="font-mono text-sm font-semibold text-slate-300">00:00:00 AM</span>
+                <span id="digital-date" class="text-[10px] text-slate-500 tracking-wider uppercase font-semibold font-sans">JULY 20, 2026</span>
+            </div>
+
+            <!-- Profile Settings trigger button -->
+            <button onclick="openProfileModal()" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition duration-300 shadow-lg shadow-indigo-600/20 text-sm font-medium">
+                <i data-lucide="user-cog" class="w-4 h-4"></i>
+                <span>Configure Profiles</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+        <!-- STATUS OVERVIEW CARDS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- GitHub Stats Card -->
+            <div class="glass-panel p-5 rounded-2xl flex items-center justify-between hover:border-green-500/30 transition-all duration-300 group">
+                <div class="space-y-1 min-w-0">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">GitHub Connection</span>
+                    <h3 id="stat-github-user" class="text-lg font-bold text-slate-200 truncate">Not Connected</h3>
+                    <div class="flex items-center space-x-1.5 mt-0.5">
+                        <span id="badge-github-status" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                        <span id="stat-github-streak" class="text-xs text-green-400 font-medium truncate font-mono">Awaiting Sync...</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-green-950/30 group-hover:bg-green-950/50 text-green-400 rounded-xl transition duration-300 border border-green-900/30 flex-shrink-0 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.11.82-.26.82-.575v-2.235c-3.335.725-4.035-1.415-4.035-1.415-.545-1.385-1.335-1.755-1.335-1.755-1.09-.745.085-.73.085-.73 1.205.085 1.84 1.24 1.84 1.24 1.07 1.835 2.805 1.305 3.49.995.105-.775.42-1.305.76-1.605-2.665-.305-5.465-1.335-5.465-5.93 0-1.31.47-2.38 1.235-3.22-.125-.305-.535-1.525.115-3.175 0 0 1.005-.32 3.3 1.23.955-.265 1.98-.395 3-.4 1.02.005 2.045.135 3 .4 2.295-1.55 3.295-1.23 3.295-1.23.655 1.65.245 2.87.12 3.175.77.84 1.235 1.91 1.235 3.22 0 4.61-2.805 5.625-5.475 5.92.43.37.81 1.1.81 2.22v3.295c0 .32.215.695.825.575C20.565 21.79 24 17.31 24 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- LeetCode Stats Card -->
+            <div class="glass-panel p-5 rounded-2xl flex items-center justify-between hover:border-amber-500/30 transition-all duration-300 group">
+                <div class="space-y-1 min-w-0">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">LeetCode Connection</span>
+                    <h3 id="stat-leetcode-user" class="text-lg font-bold text-slate-200 truncate">Not Connected</h3>
+                    <div class="flex items-center space-x-1.5 mt-0.5">
+                        <span id="badge-leetcode-status" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                        <span id="stat-leetcode-streak" class="text-xs text-amber-400 font-medium truncate font-mono">Awaiting Sync...</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-amber-950/30 group-hover:bg-amber-950/50 text-[#FFA116] rounded-xl transition duration-300 border border-amber-900/30 flex-shrink-0 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="currentColor">
+                        <path d="M16.102 17.93l-2.697 2.607c-.466.467-1.111.662-1.823.662s-1.357-.195-1.824-.662l-4.332-4.363c-.467-.467-.702-1.15-.702-1.863s.235-1.357.702-1.824l4.319-4.38c.467-.467 1.125-.645 1.837-.645s1.357.195 1.823.662l2.697 2.606c.514.515 1.365.497 1.9-.038.535-.536.553-1.387.039-1.901l-2.609-2.636a5.055 5.055 0 0 0-2.445-1.337l2.467-2.503c.516-.514.498-1.366-.037-1.901-.535-.535-1.387-.552-1.902-.038l-10.1 10.101c-.981.982-1.494 2.337-1.494 3.835 0 1.498.513 2.895 1.494 3.875l4.347 4.361c.981.979 2.337 1.452 3.834 1.452s2.853-.473 3.835-1.452l2.609-2.636c.514-.516.498-1.366-.037-1.901-.536-.535-1.387-.552-1.902-.038z"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Codeforces Stats Card -->
+            <div class="glass-panel p-5 rounded-2xl flex items-center justify-between hover:border-rose-500/30 transition-all duration-300 group">
+                <div class="space-y-1 min-w-0">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">Codeforces Connection</span>
+                    <h3 id="stat-codeforces-user" class="text-lg font-bold text-slate-200 truncate">Not Connected</h3>
+                    <div class="flex items-center space-x-1.5 mt-0.5">
+                        <span id="badge-codeforces-status" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                        <span id="stat-codeforces-streak" class="text-xs text-rose-400 font-medium truncate font-mono">Awaiting Sync...</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-rose-950/30 group-hover:bg-rose-950/50 rounded-xl transition duration-300 border border-rose-900/30 flex-shrink-0 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6">
+                        <rect x="2" y="11" width="5.5" height="10" rx="1" fill="#FFC107" />
+                        <rect x="9.25" y="4" width="5.5" height="17" rx="1" fill="#2196F3" />
+                        <rect x="16.5" y="7.5" width="5.5" height="13.5" rx="1" fill="#F44336" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- GitHub Contributions Heatmap -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col space-y-4 hover:shadow-xl transition duration-300 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-green-500/10 text-green-400 rounded-lg">
+                            <i data-lucide="github" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h4 class="font-bold text-slate-200 text-sm">GitHub Commits</h4>
+                                <span id="label-github-sync" class="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-slate-800 text-slate-400">Ready</span>
+                            </div>
+                            <p class="text-xs text-slate-400">Submissions grid (Last 35 Days)</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded-md border border-green-500/20 font-mono" id="github-total-contributions">0 total</span>
+                </div>
+                <div class="py-2 flex justify-center relative min-h-[90px]">
+                    <div id="heatmap-github" class="grid grid-cols-7 gap-1.5 max-w-max"></div>
+                    <div id="loader-github" class="absolute inset-0 flex items-center justify-center bg-darkbg/85 backdrop-blur-xs rounded-xl hidden">
+                        <div class="flex flex-col items-center space-y-1">
+                            <i data-lucide="loader-2" class="w-5 h-5 text-green-400 animate-spin"></i>
+                            <span class="text-[10px] text-slate-400 font-mono">Fetching commits...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center text-[10px] text-slate-500 border-t border-slate-800/60 pt-2 font-mono">
+                    <span>35 days ago</span>
+                    <div class="flex items-center space-x-1">
+                        <span>Less</span>
+                        <div class="w-2.5 h-2.5 bg-slate-800/80 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-green-950 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-green-700 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-green-500 rounded-xs"></div>
+                        <span>More</span>
+                    </div>
+                    <span>Today</span>
+                </div>
+            </div>
+
+            <!-- LeetCode Contribution Heatmap -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col space-y-4 hover:shadow-xl transition duration-300 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-amber-500/10 text-amber-400 rounded-lg">
+                            <i data-lucide="award" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h4 class="font-bold text-slate-200 text-sm">LeetCode Solutions</h4>
+                                <span id="label-leetcode-sync" class="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-slate-800 text-slate-400">Ready</span>
+                            </div>
+                            <p class="text-xs text-slate-400">Accepted problems (Last 35 Days)</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-amber-500/10 text-amber-400 px-2 py-1 rounded-md border border-amber-500/20 font-mono" id="leetcode-total-contributions">0 total</span>
+                </div>
+                <div class="py-2 flex justify-center relative min-h-[90px]">
+                    <div id="heatmap-leetcode" class="grid grid-cols-7 gap-1.5 max-w-max"></div>
+                    <div id="loader-leetcode" class="absolute inset-0 flex items-center justify-center bg-darkbg/85 backdrop-blur-xs rounded-xl hidden">
+                        <div class="flex flex-col items-center space-y-1">
+                            <i data-lucide="loader-2" class="w-5 h-5 text-amber-400 animate-spin"></i>
+                            <span class="text-[10px] text-slate-400 font-mono">Contacting LeetCode Proxy...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center text-[10px] text-slate-500 border-t border-slate-800/60 pt-2 font-mono">
+                    <span>35 days ago</span>
+                    <div class="flex items-center space-x-1">
+                        <span>Less</span>
+                        <div class="w-2.5 h-2.5 bg-slate-800/80 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-amber-950 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-amber-700 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-yellow-500 rounded-xs"></div>
+                        <span>More</span>
+                    </div>
+                    <span>Today</span>
+                </div>
+            </div>
+
+            <!-- Codeforces Grid Contribution Heatmap -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col space-y-4 hover:shadow-xl transition duration-300 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-rose-500/10 text-rose-400 rounded-lg">
+                            <i data-lucide="code-2" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h4 class="font-bold text-slate-200 text-sm">Codeforces Solves</h4>
+                                <span id="label-codeforces-sync" class="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-slate-800 text-slate-400">Ready</span>
+                            </div>
+                            <p class="text-xs text-slate-400">Accepted problems (Last 35 Days)</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-rose-500/10 text-rose-400 px-2 py-1 rounded-md border border-rose-500/20 font-mono" id="codeforces-total-contributions">0 total</span>
+                </div>
+                <div class="py-2 flex justify-center relative min-h-[90px]">
+                    <div id="heatmap-codeforces" class="grid grid-cols-7 gap-1.5 max-w-max"></div>
+                    <div id="loader-codeforces" class="absolute inset-0 flex items-center justify-center bg-darkbg/85 backdrop-blur-xs rounded-xl hidden">
+                        <div class="flex flex-col items-center space-y-1">
+                            <i data-lucide="loader-2" class="w-5 h-5 text-rose-400 animate-spin"></i>
+                            <span class="text-[10px] text-slate-400 font-mono">Parsing Codeforces logs...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center text-[10px] text-slate-500 border-t border-slate-800/60 pt-2 font-mono">
+                    <span>35 days ago</span>
+                    <div class="flex items-center space-x-1">
+                        <span>Less</span>
+                        <div class="w-2.5 h-2.5 bg-slate-800/80 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-rose-950 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-rose-700 rounded-xs"></div>
+                        <div class="w-2.5 h-2.5 bg-rose-500 rounded-xs"></div>
+                        <span>More</span>
+                    </div>
+                    <span>Today</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl glowing-ring">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 pb-4 border-b border-slate-800/60 gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-200 text-lg">Multi-Platform Analytics Engine</h3>
+                        <p class="text-xs text-slate-400 font-mono">Perfected metrics aggregate calculated from real daily historical counts</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="recalculateAnalytics()" class="text-indigo-400 hover:text-indigo-300 flex items-center space-x-1.5 text-xs border border-indigo-500/30 hover:bg-indigo-500/10 px-3 py-1.5 rounded-lg transition">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        <span>Recalculate engine metrics</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <!-- Competency radar chart -->
+                <div class="lg:col-span-4 flex flex-col items-center">
+                    <h5 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 font-mono">Competency Radar</h5>
+                    <div class="w-full max-w-[280px] h-[280px] relative">
+                        <canvas id="skillRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Cumulative Velocity progress graph -->
+                <div class="lg:col-span-8 flex flex-col justify-between h-full min-h-[280px]">
+                    <div>
+                        <h5 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 text-center lg:text-left font-mono">35-Day Unified Platform Velocity</h5>
+                        <div class="w-full h-[190px] relative">
+                            <canvas id="progressionLineChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center mt-4 pt-4 border-t border-slate-800/60">
+                        <div>
+                            <span class="text-[9px] text-slate-500 uppercase font-mono tracking-wider block">Consistency Score</span>
+                            <div class="text-base font-bold text-indigo-400" id="stat-consistency-score">0%</div>
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-500 uppercase font-mono tracking-wider block">Dominant Platform</span>
+                            <div class="text-base font-bold text-green-400" id="stat-focused-platform">N/A</div>
+                        </div>
+                        <div>
+                            <span class="text-[9px] text-slate-500 uppercase font-mono tracking-wider block">Est. Cumulative Elo</span>
+                            <div class="text-base font-bold text-rose-400" id="stat-estimated-iq">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- PRODUCTIVITY ALARM PANEL -->
+            <div class="glass-panel p-6 rounded-2xl lg:col-span-4 flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex items-center space-x-3 mb-2">
+                        <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                            <i data-lucide="hourglass" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-200 text-base">Productivity Timer & Alarm</h3>
+                            <p class="text-xs text-slate-400">Schedule deep focus intervals</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col items-center py-2">
+                        <div class="relative w-36 h-36 flex items-center justify-center">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle cx="72" cy="72" r="64" stroke="rgba(255,255,255,0.03)" stroke-width="6" fill="transparent" />
+                                <circle id="timer-progress" cx="72" cy="72" r="64" stroke="#4f46e5" stroke-width="6" fill="transparent" 
+                                    stroke-dasharray="401.9" stroke-dashoffset="0" class="transition-all duration-1000 ease-linear" />
+                            </svg>
+                            <div class="absolute flex flex-col items-center">
+                                <span id="timer-display" class="text-2xl font-mono font-bold text-slate-100 tracking-wider">25:00</span>
+                                <span id="timer-status" class="text-[9px] uppercase text-indigo-400 font-semibold tracking-widest mt-0.5">Ready</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block font-mono">Timer Presets</label>
+                        <div class="grid grid-cols-5 gap-1.5">
+                            <button onclick="setTimerPreset(1)" class="bg-slate-800/60 hover:bg-slate-700 text-[10px] py-1 rounded text-slate-300 font-semibold transition">1m</button>
+                            <button onclick="setTimerPreset(15)" class="bg-slate-800/60 hover:bg-slate-700 text-[10px] py-1 rounded text-slate-300 font-semibold transition">15m</button>
+                            <button onclick="setTimerPreset(25)" class="bg-indigo-950/40 border border-indigo-700/40 hover:bg-indigo-900/40 text-[10px] py-1 rounded text-indigo-300 font-semibold transition">25m</button>
+                            <button onclick="setTimerPreset(50)" class="bg-slate-800/60 hover:bg-slate-700 text-[10px] py-1 rounded text-slate-300 font-semibold transition">50m</button>
+                            <button onclick="setTimerPreset(120)" class="bg-slate-800/60 hover:bg-slate-700 text-[10px] py-1 rounded text-slate-300 font-semibold transition">2h</button>
+                        </div>
+
+                        <!-- Manual entry custom timers -->
+                        <div class="flex items-center space-x-1 mt-2">
+                            <input id="timer-input-h" type="number" min="0" max="23" placeholder="00" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-center text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500" />
+                            <span class="text-slate-600 font-mono text-xs">:</span>
+                            <input id="timer-input-m" type="number" min="0" max="59" placeholder="25" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-center text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500" />
+                            <span class="text-slate-600 font-mono text-xs">:</span>
+                            <input id="timer-input-s" type="number" min="0" max="59" placeholder="00" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-center text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 pt-2 border-t border-slate-800/60">
+                    <button id="btn-timer-toggle" onclick="toggleTimer()" class="flex-grow flex items-center justify-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-xl transition duration-300">
+                        <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                        <span>Start Session</span>
+                    </button>
+                    <button onclick="resetTimer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2.5 rounded-xl border border-slate-700/40 transition">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- RECENT FEED PANEL -->
+            <div class="glass-panel p-6 rounded-2xl lg:col-span-4 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
+                                <i data-lucide="list-todo" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-200 text-base">Real-Time Solved Stream</h3>
+                                <p class="text-[11px] text-slate-400 font-mono">Submissions on connected profiles</p>
+                            </div>
+                        </div>
+                        <button onclick="syncAllPlatformsData()" class="text-slate-400 hover:text-indigo-400 flex items-center justify-center border border-slate-800 hover:border-indigo-500/30 p-2 rounded-lg transition duration-200">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1" id="recent-activities-container"></div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800/60 mt-4 text-[9px] text-slate-500 flex justify-between items-center font-mono">
+                    <span id="feed-last-updated">Unsynchronized</span>
+                </div>
+            </div>
+
+            <!-- AI PROFILE ANALYZER CHAT -->
+            <div class="glass-panel p-6 rounded-2xl lg:col-span-4 flex flex-col justify-between relative overflow-hidden glowing-ring">
+                <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-violet-600 via-indigo-500 to-emerald-400"></div>
+
+                <div class="flex flex-col h-full justify-between space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                        <div class="flex items-center space-x-2">
+                            <div class="p-1.5 bg-indigo-500/20 text-indigo-300 rounded-lg">
+                                <i data-lucide="sparkles" class="w-4 h-4 animate-bounce"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <h3 class="font-bold text-slate-100 text-sm">CodePulse AI</h3>
+                                    <select id="ai-model-selector" onchange="changeAiModel()" class="bg-slate-900 border border-slate-700 text-slate-300 text-[9px] rounded px-1.5 py-0.5 outline-none focus:border-indigo-500 cursor-pointer">
+                                        <option value="gemini">Gemini Flash</option>
+                                        <option value="openai">OpenAI GPT-4o</option>
+                                        <option value="deepseek">DeepSeek Coder</option>
+                                        <option value="anthropic">Claude 3.5</option>
+                                    </select>
+                                </div>
+                                <p class="text-[9px] text-indigo-400 font-mono mt-0.5">Dev Companion Active</p>
+                            </div>
+                        </div>
+                        <!-- AUDIT REPORT ACTION BUTTON -->
+                        <button onclick="generateAuditReport()" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg font-semibold transition-all duration-200 flex items-center space-x-1 shadow-md shadow-indigo-600/10">
+                            <i data-lucide="file-text" class="w-3 h-3"></i>
+                            <span>Daily Briefing</span>
+                        </button>
+                    </div>
+
+                    <!-- Chat Message Area -->
+                    <div id="ai-chat-messages" class="flex-grow space-y-2.5 max-h-[220px] overflow-y-auto text-xs pr-1 flex flex-col scroll-smooth">
+                        <div class="bg-indigo-950/20 border border-indigo-500/10 p-2.5 rounded-xl text-slate-300 leading-relaxed">
+                            Hello developer! I am CodePulse AI, your personal coding companion. I analyze your daily activity, discuss algorithms, and track tech news like global hackathons and ICPC. Click <strong>Daily Briefing</strong> for a quick update, or chat with me below!
+                        </div>
+                    </div>
+
+                    <!-- Input line -->
+                    <div class="flex items-center space-x-2 pt-2 border-t border-slate-800/60">
+                        <input id="ai-chat-input" type="text" placeholder="Ask about algorithms, hackathons, or your stats..." 
+                            onkeydown="if(event.key === 'Enter') sendAiMessage()"
+                            class="flex-grow bg-slate-950 border border-slate-850 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
+                        <button onclick="sendAiMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-lg transition flex-shrink-0">
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="glass-panel border-t border-glassborder py-6 px-4 mt-12">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
+            <p>&copy; 2026 CodePulse Intelligence Network. Active Web Client Architecture.</p>
+            <div class="flex space-x-6 mt-4 sm:mt-0 font-mono">
+                <a href="#" class="hover:text-indigo-400 transition">DevDocs</a>
+                <a href="#" class="hover:text-indigo-400 transition">Metrics Sandbox</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- PROFILE CONFIGURATION MODAL -->
+    <div id="profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel-heavy rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-800/80 transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]" id="modal-content">
+            <div class="px-6 py-4 border-b border-slate-800/80 flex justify-between items-center bg-indigo-950/20 shrink-0">
+                <div class="flex items-center space-x-2.5">
+                    <i data-lucide="settings" class="w-5 h-5 text-indigo-400"></i>
+                    <h2 class="font-bold text-base text-slate-100">System Configuration</h2>
+                </div>
+                <button onclick="closeProfileModal()" class="text-slate-400 hover:text-slate-100 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleProfileSubmit(event)" class="flex flex-col overflow-hidden">
+                <div class="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+                    
+                    <!-- Platform Section -->
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-2 border-b border-slate-800 pb-2">
+                            <i data-lucide="user" class="w-4 h-4 text-slate-400"></i>
+                            <h3 class="text-sm font-semibold text-slate-200">Developer Handles</h3>
+                        </div>
+                        
+                        <p class="text-[10px] text-slate-400 leading-relaxed font-mono">
+                            Update usernames to sync real stats. Leave blank to revert to sandbox mode.
+                        </p>
+
+                        <div class="space-y-1.5">
+                            <label for="input-github" class="text-xs font-semibold uppercase tracking-wider text-green-400 flex items-center font-mono">
+                                <i data-lucide="github" class="w-3.5 h-3.5 mr-1.5"></i> GitHub Profile
+                            </label>
+                            <input id="input-github" type="text" placeholder="e.g., torvalds" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-green-500 text-xs font-mono" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="input-leetcode" class="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center font-mono">
+                                <i data-lucide="award" class="w-3.5 h-3.5 mr-1.5"></i> LeetCode Profile
+                            </label>
+                            <input id="input-leetcode" type="text" placeholder="e.g., neetcode" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-xs font-mono" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="input-codeforces" class="text-xs font-semibold uppercase tracking-wider text-rose-400 flex items-center font-mono">
+                                <i data-lucide="code-2" class="w-3.5 h-3.5 mr-1.5"></i> Codeforces Handle
+                            </label>
+                            <input id="input-codeforces" type="text" placeholder="e.g., tourist" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-rose-500 text-xs font-mono" />
+                        </div>
+                    </div>
+
+                    <!-- AI API Keys Section -->
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-2 border-b border-slate-800 pb-2">
+                            <i data-lucide="key" class="w-4 h-4 text-indigo-400"></i>
+                            <h3 class="text-sm font-semibold text-indigo-200">AI Provider Keys (Optional)</h3>
+                        </div>
+                        
+                        <p class="text-[10px] text-slate-400 leading-relaxed font-mono">
+                            Add custom API keys to power the CodePulse Copilot. Keys are stored locally in your browser. Leave Gemini blank to use the default web proxy.
+                        </p>
+
+                        <div class="space-y-1.5">
+                            <label for="input-key-gemini" class="text-[10px] font-semibold tracking-wider text-indigo-300 flex items-center font-mono">
+                                Gemini API Key
+                            </label>
+                            <input id="input-key-gemini" type="password" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs font-mono" />
+                        </div>
+                        
+                        <div class="space-y-1.5">
+                            <label for="input-key-openai" class="text-[10px] font-semibold tracking-wider text-indigo-300 flex items-center font-mono">
+                                OpenAI API Key (GPT-4o)
+                            </label>
+                            <input id="input-key-openai" type="password" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs font-mono" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="input-key-deepseek" class="text-[10px] font-semibold tracking-wider text-indigo-300 flex items-center font-mono">
+                                DeepSeek API Key (Coder)
+                            </label>
+                            <input id="input-key-deepseek" type="password" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs font-mono" />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="input-key-anthropic" class="text-[10px] font-semibold tracking-wider text-indigo-300 flex items-center font-mono">
+                                Anthropic API Key (Claude)
+                            </label>
+                            <input id="input-key-anthropic" type="password" placeholder="sk-ant-..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs font-mono" />
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Action Bar -->
+                <div class="p-4 border-t border-slate-800/80 bg-slate-900/50 shrink-0 flex justify-end space-x-3">
+                    <button type="button" onclick="closeProfileModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition text-xs font-semibold font-mono">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition text-xs font-semibold shadow-lg shadow-indigo-600/20 font-mono">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST ALERTS SYSTEM -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-3 max-w-sm w-full pointer-events-none font-sans"></div>
+
+    <script>
+        // Default profiles and settings
+        const DEFAULT_PROFILES = {
+            github: 'octocat',
+            leetcode: 'faisal-shohag',
+            codeforces: 'Fefer_Ivan',
+            apiKeys: {
+                gemini: '',
+                openai: '',
+                deepseek: '',
+                anthropic: ''
+            },
+            activeModel: 'gemini'
+        };
+
+        let userProfiles = { ...DEFAULT_PROFILES };
+        
+        let timerInterval = null;
+        let timerSecondsRemaining = 1500; // 25 min default
+        let timerInitialDuration = 1500;
+        let isTimerRunning = false;
+
+        let audioCtx = null;
+
+        // Structured state containing daily tracking for progression
+        let platformMetrics = {
+            github: { total: 0, streak: 'Unverified', countDays: {}, records: [] },
+            leetcode: { total: 0, streak: 'Unverified', countDays: {}, records: [] },
+            codeforces: { total: 0, rating: 'Unverified', countDays: {}, records: [] }
+        };
+
+        let radarChartInstance = null;
+        let lineChartInstance = null;
+
+        function getLocalYYYYMMDD(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function initRealtimeClock() {
+            const clockEl = document.getElementById('digital-clock');
+            const dateEl = document.getElementById('digital-date');
+            
+            function updateClock() {
+                const now = new Date();
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12; 
+                clockEl.textContent = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+
+                const options = { year: 'numeric', month: 'long', day: 'numeric' };
+                dateEl.textContent = now.toLocaleDateString('en-US', options).toUpperCase();
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        function loadProfiles() {
+            const saved = localStorage.getItem('codepulse_profiles_v3');
+            if (saved) {
+                try {
+                    userProfiles = JSON.parse(saved);
+                } catch (e) {
+                    userProfiles = { ...DEFAULT_PROFILES };
+                }
+            } else {
+                localStorage.setItem('codepulse_profiles_v3', JSON.stringify(DEFAULT_PROFILES));
+            }
+            updateProfileUI();
+        }
+
+        function saveProfiles(newProfiles) {
+            userProfiles = { ...newProfiles };
+            localStorage.setItem('codepulse_profiles_v3', JSON.stringify(userProfiles));
+            updateProfileUI();
+            syncAllPlatformsData();
+            showToast("Sync Initiated", "Saving profile configurations and triggering network requests.", "success");
+        }
+
+        function updateProfileUI() {
+            document.getElementById('stat-github-user').textContent = userProfiles.github || 'Not Connected';
+            document.getElementById('stat-leetcode-user').textContent = userProfiles.leetcode || 'Not Connected';
+            document.getElementById('stat-codeforces-user').textContent = userProfiles.codeforces || 'Not Connected';
+            
+            document.getElementById('input-github').value = userProfiles.github || '';
+            document.getElementById('input-leetcode').value = userProfiles.leetcode || '';
+            document.getElementById('input-codeforces').value = userProfiles.codeforces || '';
+
+            // AI Keys
+            const keys = userProfiles.apiKeys || {};
+            document.getElementById('input-key-gemini').value = keys.gemini || '';
+            document.getElementById('input-key-openai').value = keys.openai || '';
+            document.getElementById('input-key-deepseek').value = keys.deepseek || '';
+            document.getElementById('input-key-anthropic').value = keys.anthropic || '';
+
+            // Update UI selector
+            const modelSelector = document.getElementById('ai-model-selector');
+            if (modelSelector && userProfiles.activeModel) {
+                modelSelector.value = userProfiles.activeModel;
+            }
+        }
+
+        function changeAiModel() {
+            const val = document.getElementById('ai-model-selector').value;
+            userProfiles.activeModel = val;
+            saveProfiles(userProfiles, false); // Save without resyncing dashboards
+            showToast("Model Switched", `Active Copilot provider set to: ${val.toUpperCase()}`, "success");
+        }
+
+        function initCharts() {
+            const ctxRadar = document.getElementById('skillRadarChart').getContext('2d');
+            radarChartInstance = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: ['GitHub Commits', 'LeetCode Submissions', 'Codeforces Power'],
+                    datasets: [{
+                        label: 'Real footprint balance',
+                        data: [0, 0, 0],
+                        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                        borderColor: '#6366f1',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#4f46e5',
+                        pointBorderColor: '#fff',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                            pointLabels: { color: '#94a3b8', font: { size: 10, family: 'Inter' } },
+                            ticks: { display: false },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const ctxLine = document.getElementById('progressionLineChart').getContext('2d');
+            lineChartInstance = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 35}, (_, i) => `${35 - i}d ago`),
+                    datasets: [{
+                        label: 'Aggregated Platform Velocity',
+                        data: Array(35).fill(0),
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 1,
+                        pointHoverRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#475569', font: { size: 8 } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#475569', font: { size: 8 } } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function recalculateAnalytics() {
+            if (!radarChartInstance || !lineChartInstance) return;
+
+            const ghCount = platformMetrics.github.total;
+            const lcCount = platformMetrics.leetcode.total;
+            const cfCount = platformMetrics.codeforces.total;
+
+            // Compute normalized metrics for Radar layout using weighted ratios for realistic analytical shape
+            const wGH = 1.0; 
+            const wLC = 3.0; 
+            const wCF = 6.0; 
+            const weightedGh = ghCount * wGH;
+            const weightedLc = lcCount * wLC;
+            const weightedCf = cfCount * wCF;
+            const maxScore = Math.max(weightedGh, weightedLc, weightedCf, 1);
+
+            const normalGh = Math.round((weightedGh / maxScore) * 100);
+            const normalLc = Math.round((weightedLc / maxScore) * 100);
+            const normalCf = Math.round((weightedCf / maxScore) * 100);
+
+            radarChartInstance.data.datasets[0].data = [normalGh, normalLc, normalCf];
+            radarChartInstance.update();
+
+            // Construct 100% authentic timeline by grouping exact daily scores for the last 35 days
+            const combinedData = Array(35).fill(0);
+            const now = new Date();
+
+            for (let i = 0; i < 35; i++) {
+                const targetDate = new Date(now);
+                targetDate.setDate(now.getDate() - (34 - i));
+                const dateString = getLocalYYYYMMDD(targetDate);
+
+                const ghDay = platformMetrics.github.countDays[dateString] || 0;
+                const lcDay = platformMetrics.leetcode.countDays[dateString] || 0;
+                const cfDay = platformMetrics.codeforces.countDays[dateString] || 0;
+
+                combinedData[i] = ghDay + lcDay + cfDay;
+            }
+
+            lineChartInstance.data.datasets[0].data = combinedData;
+            lineChartInstance.update();
+
+            // Calculate exact metrics
+            const totalActivityCount = ghCount + lcCount + cfCount;
+            const consistencyScore = Math.min(100, Math.round((combinedData.filter(v => v > 0).length / 35) * 100));
+            document.getElementById('stat-consistency-score').textContent = `${consistencyScore}%`;
+
+            let dominant = 'None';
+            let maxCount = -1;
+            if (weightedGh > maxCount) { dominant = 'GitHub'; maxCount = weightedGh; }
+            if (weightedLc > maxCount) { dominant = 'LeetCode'; maxCount = weightedLc; }
+            if (weightedCf > maxCount) { dominant = 'Codeforces'; maxCount = weightedCf; }
+            document.getElementById('stat-focused-platform').textContent = totalActivityCount > 0 ? dominant : 'N/A';
+
+            // Estimate authentic developer Elo rating range based on actual completed solves
+            const baseRating = Math.floor(1000 + weightedGh + weightedLc + weightedCf);
+            document.getElementById('stat-estimated-iq').textContent = totalActivityCount > 0 ? baseRating : '0';
+
+            // Add lightweight visual feedback if called manually via the interface button
+            if (window.event && window.event.type === 'click') {
+                showToast("Engine Recalculated", "Analytics re-balanced securely based on local timezone.", "success");
+            }
+        }
+
+        async function syncAllPlatformsData() {
+            platformMetrics.github.records = [];
+            platformMetrics.leetcode.records = [];
+            platformMetrics.codeforces.records = [];
+
+            setSyncIndicator('github', 'syncing');
+            setSyncIndicator('leetcode', 'syncing');
+            setSyncIndicator('codeforces', 'syncing');
+
+            if (userProfiles.github) {
+                await fetchGitHubData(userProfiles.github);
+            } else {
+                setSyncIndicator('github', 'unconfigured');
+                buildEmptyHeatmap('heatmap-github', 'github-total-contributions');
+            }
+
+            if (userProfiles.leetcode) {
+                await fetchLeetCodeData(userProfiles.leetcode);
+            } else {
+                setSyncIndicator('leetcode', 'unconfigured');
+                buildEmptyHeatmap('heatmap-leetcode', 'leetcode-total-contributions');
+            }
+
+            if (userProfiles.codeforces) {
+                await fetchCodeforcesData(userProfiles.codeforces);
+            } else {
+                setSyncIndicator('codeforces', 'unconfigured');
+                buildEmptyHeatmap('heatmap-codeforces', 'codeforces-total-contributions');
+            }
+
+            assembleSolvedFeed();
+            recalculateAnalytics();
+        }
+
+        function setSyncIndicator(platform, status, displayDetail = '') {
+            const badge = document.getElementById(`badge-${platform}-status`);
+            const label = document.getElementById(`label-${platform}-sync`);
+            const streakElement = document.getElementById(`stat-${platform}-streak`);
+            const loader = document.getElementById(`loader-${platform}`);
+
+            if (!badge) return;
+
+            if (status === 'syncing') {
+                badge.className = "w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping";
+                if (label) {
+                    label.textContent = "Syncing";
+                    label.className = "text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-indigo-950 text-indigo-300 border border-indigo-500/20";
+                }
+                if (loader) loader.classList.remove('hidden');
+                streakElement.textContent = "Querying live database...";
+            } else if (status === 'live') {
+                badge.className = "w-1.5 h-1.5 rounded-full bg-green-500";
+                if (label) {
+                    label.textContent = "Live Link";
+                    label.className = "text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-green-950 text-green-300 border border-green-500/20";
+                }
+                if (loader) loader.classList.add('hidden');
+                if (displayDetail) streakElement.textContent = displayDetail;
+            } else if (status === 'fallback') {
+                badge.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
+                if (label) {
+                    label.textContent = "Offline Sandbox";
+                    label.className = "text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-amber-950 text-amber-300 border border-amber-500/20";
+                }
+                if (loader) loader.classList.add('hidden');
+                if (displayDetail) streakElement.textContent = displayDetail;
+            } else if (status === 'unconfigured') {
+                badge.className = "w-1.5 h-1.5 rounded-full bg-slate-600";
+                if (label) {
+                    label.textContent = "Disconnected";
+                    label.className = "text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-slate-800 text-slate-500";
+                }
+                if (loader) loader.classList.add('hidden');
+                streakElement.textContent = "Enter profile name";
+            }
+        }
+
+        async function fetchGitHubData(username) {
+            try {
+                const proxyUrl = `https://github-contributions-api.jogruber.de/v4/${username}?y=last`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error("Connection failed");
+                const resData = await response.json();
+
+                const parsedDays = {};
+                if (resData.contributions && Array.isArray(resData.contributions)) {
+                    resData.contributions.forEach(item => {
+                        parsedDays[item.date] = item.count;
+                    });
+                }
+
+                platformMetrics.github.countDays = parsedDays;
+                renderActiveHeatmap('heatmap-github', 'github-total-contributions', 'green', parsedDays);
+
+                // Fetch real public activities
+                try {
+                    const activityRes = await fetch(`https://api.github.com/users/${username}/events`);
+                    if (activityRes.ok) {
+                        const events = await activityRes.json();
+                        const pushEvents = events.filter(e => e.type === "PushEvent").slice(0, 3);
+                        pushEvents.forEach(evt => {
+                            platformMetrics.github.records.push({
+                                platform: 'github',
+                                title: `Pushed commits to: ${evt.repo.name}`,
+                                status: { text: 'Pushed', style: 'bg-green-500/10 text-green-400 border-green-500/20' },
+                                age: calculateMinutesAgo(new Date(evt.created_at))
+                            });
+                        });
+                    }
+                } catch(err) { console.warn("GitHub events error", err); }
+
+                const pastYearTotal = resData.total ? (resData.total.lastYear || 0) : 0;
+                platformMetrics.github.total = pastYearTotal;
+                setSyncIndicator('github', 'live', `${pastYearTotal} active commits`);
+            } catch(e) {
+                console.error(e);
+                loadGitHubFallback(username);
+            }
+        }
+
+        function loadGitHubFallback(username) {
+            setSyncIndicator('github', 'fallback', `Sandbox Mode`);
+            const mock = {};
+            const now = new Date();
+            let sum = 0;
+            for (let i = 0; i < 35; i++) {
+                const d = new Date(now);
+                d.setDate(now.getDate() - i);
+                const ds = getLocalYYYYMMDD(d);
+                const active = Math.random() > 0.45;
+                const count = active ? Math.floor(Math.random() * 6) + 1 : 0;
+                mock[ds] = count;
+                sum += count;
+            }
+            platformMetrics.github.countDays = mock;
+            platformMetrics.github.total = sum;
+            renderActiveHeatmap('heatmap-github', 'github-total-contributions', 'green', mock);
+            
+            platformMetrics.github.records = [
+                { platform: 'github', title: "Refactored async session controllers", status: { text: 'Completed', style: 'bg-green-500/10 text-green-400' }, age: 12 },
+                { platform: 'github', title: "Optimized Docker build pipeline parameters", status: { text: 'Pushed', style: 'bg-green-500/10 text-green-400' }, age: 40 }
+            ];
+        }
+
+        async function fetchLeetCodeData(username) {
+            try {
+                const url = `https://alfa-leetcode-api.onrender.com/${username}/calendar`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("API sleeping");
+                const data = await response.json();
+
+                let calendarObj = {};
+                if (data.submissionCalendar) {
+                    calendarObj = typeof data.submissionCalendar === 'string' ? JSON.parse(data.submissionCalendar) : data.submissionCalendar;
+                }
+
+                const parsed = {};
+                Object.entries(calendarObj).forEach(([timestamp, count]) => {
+                    const d = new Date(parseInt(timestamp) * 1000);
+                    parsed[getLocalYYYYMMDD(d)] = count;
+                });
+
+                platformMetrics.leetcode.countDays = parsed;
+                renderActiveHeatmap('heatmap-leetcode', 'leetcode-total-contributions', 'amber', parsed);
+
+                try {
+                    const subRes = await fetch(`https://alfa-leetcode-api.onrender.com/${username}/acSubmission?limit=3`);
+                    if (subRes.ok) {
+                        const subs = await subRes.json();
+                        const list = subs.submission || [];
+                        list.forEach(sub => {
+                            platformMetrics.leetcode.records.push({
+                                platform: 'leetcode',
+                                title: `${sub.title} [${sub.lang.toUpperCase()}]`,
+                                status: { text: 'Accepted', style: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+                                age: calculateMinutesAgo(new Date(parseInt(sub.timestamp) * 1000))
+                            });
+                        });
+                    }
+                } catch(e) { console.warn(e); }
+
+                const totalSolves = Object.values(calendarObj).reduce((acc, curr) => acc + curr, 0);
+                platformMetrics.leetcode.total = totalSolves;
+                setSyncIndicator('leetcode', 'live', `${totalSolves} problems solved`);
+            } catch(e) {
+                console.error(e);
+                loadLeetCodeFallback(username);
+            }
+        }
+
+        function loadLeetCodeFallback(username) {
+            setSyncIndicator('leetcode', 'fallback', `Sandbox Mode`);
+            const mock = {};
+            const now = new Date();
+            let sum = 0;
+            for (let i = 0; i < 35; i++) {
+                const d = new Date(now);
+                d.setDate(now.getDate() - i);
+                const ds = getLocalYYYYMMDD(d);
+                const active = Math.random() > 0.5;
+                const count = active ? Math.floor(Math.random() * 3) + 1 : 0;
+                mock[ds] = count;
+                sum += count;
+            }
+            platformMetrics.leetcode.countDays = mock;
+            platformMetrics.leetcode.total = sum;
+            renderActiveHeatmap('heatmap-leetcode', 'leetcode-total-contributions', 'amber', mock);
+
+            platformMetrics.leetcode.records = [
+                { platform: 'leetcode', title: "Rotate Image Matrix array (Hard)", status: { text: 'Accepted', style: 'bg-emerald-500/10 text-emerald-400' }, age: 24 },
+                { platform: 'leetcode', title: "Validate Symmetric Binary Search Tree", status: { text: 'Rejected', style: 'bg-rose-500/10 text-rose-400' }, age: 95 }
+            ];
+        }
+
+        async function fetchCodeforcesData(username) {
+            try {
+                const url = `https://codeforces.com/api/user.status?handle=${username}&from=1&count=400`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("CF unreachable");
+                const res = await response.json();
+                if (res.status !== "OK") throw new Error("Validation failure");
+
+                const list = res.result || [];
+                const parsed = {};
+                list.forEach(sub => {
+                    if (!sub.creationTimeSeconds) return;
+                    const ds = getLocalYYYYMMDD(new Date(sub.creationTimeSeconds * 1000));
+                    if (!parsed[ds]) parsed[ds] = 0;
+                    parsed[ds]++;
+                });
+
+                platformMetrics.codeforces.countDays = parsed;
+                renderActiveHeatmap('heatmap-codeforces', 'codeforces-total-contributions', 'rose', parsed);
+
+                const topThree = list.slice(0, 3);
+                topThree.forEach(sub => {
+                    platformMetrics.codeforces.records.push({
+                        platform: 'codeforces',
+                        title: `${sub.problem.contestId}${sub.problem.index} - ${sub.problem.name}`,
+                        status: {
+                            text: sub.verdict === "OK" ? 'Accepted' : 'Failed',
+                            style: sub.verdict === "OK" ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        },
+                        age: calculateMinutesAgo(new Date(sub.creationTimeSeconds * 1000))
+                    });
+                });
+
+                const totalSolved = list.filter(s => s.verdict === "OK").length;
+                platformMetrics.codeforces.total = totalSolved;
+                setSyncIndicator('codeforces', 'live', `${totalSolved} AC results loaded`);
+            } catch(e) {
+                console.error(e);
+                loadCodeforcesFallback(username);
+            }
+        }
+
+        function loadCodeforcesFallback(username) {
+            setSyncIndicator('codeforces', 'fallback', `Sandbox Mode`);
+            const mock = {};
+            const now = new Date();
+            let sum = 0;
+            for (let i = 0; i < 35; i++) {
+                const d = new Date(now);
+                d.setDate(now.getDate() - i);
+                const ds = getLocalYYYYMMDD(d);
+                const active = Math.random() > 0.65;
+                const count = active ? Math.floor(Math.random() * 2) + 1 : 0;
+                mock[ds] = count;
+                sum += count;
+            }
+            platformMetrics.codeforces.countDays = mock;
+            platformMetrics.codeforces.total = sum;
+            renderActiveHeatmap('heatmap-codeforces', 'codeforces-total-contributions', 'rose', mock);
+
+            platformMetrics.codeforces.records = [
+                { platform: 'codeforces', title: "1720C - Binary Grid Shift (Div 2)", status: { text: 'Accepted', style: 'bg-green-500/10 text-green-400' }, age: 110 }
+            ];
+        }
+
+        function renderActiveHeatmap(targetId, totalId, colorPalette, countMap) {
+            const container = document.getElementById(targetId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            let sumTotal = 0;
+            const now = new Date();
+
+            // Formulate standard 35-day grid
+            for (let i = 34; i >= 0; i--) {
+                const currentDay = new Date(now);
+                currentDay.setDate(now.getDate() - i);
+                const dateStr = getLocalYYYYMMDD(currentDay);
+                const labelStr = currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                const val = countMap[dateStr] || 0;
+                sumTotal += val;
+
+                let colorClass = 'bg-slate-900/60 hover:scale-110';
+
+                if (val > 0) {
+                    if (colorPalette === 'green') {
+                        if (val <= 2) colorClass = 'bg-green-950 hover:bg-green-900 hover:scale-115';
+                        else if (val <= 4) colorClass = 'bg-green-700 hover:bg-green-600 hover:scale-115';
+                        else colorClass = 'bg-green-500 hover:bg-green-400 hover:scale-115';
+                    } else if (colorPalette === 'amber') {
+                        if (val <= 1) colorClass = 'bg-amber-950 hover:bg-amber-900 hover:scale-115';
+                        else if (val <= 3) colorClass = 'bg-amber-700 hover:bg-amber-600 hover:scale-115';
+                        else colorClass = 'bg-yellow-500 hover:bg-yellow-400 hover:scale-115';
+                    } else if (colorPalette === 'rose') {
+                        if (val <= 1) colorClass = 'bg-rose-950 hover:bg-rose-900 hover:scale-115';
+                        else if (val <= 2) colorClass = 'bg-rose-700 hover:bg-rose-600 hover:scale-115';
+                        else colorClass = 'bg-rose-500 hover:bg-rose-450 hover:scale-115';
+                    }
+                }
+
+                const node = document.createElement('div');
+                node.className = `w-[14px] h-[14px] rounded-sm cursor-pointer transition-all duration-150 relative tooltip ${colorClass}`;
+                node.innerHTML = `<span class="tooltiptext">${val === 0 ? 'No logs' : `${val} submittals`} on ${labelStr}</span>`;
+                container.appendChild(node);
+            }
+
+            document.getElementById(totalId).textContent = `${sumTotal} total`;
+        }
+
+        function buildEmptyHeatmap(targetId, totalId) {
+            const container = document.getElementById(targetId);
+            if (!container) return;
+            container.innerHTML = '';
+            
+            for (let i = 0; i < 35; i++) {
+                const node = document.createElement('div');
+                node.className = 'w-[14px] h-[14px] rounded-sm bg-slate-900/50 opacity-20 relative tooltip';
+                node.innerHTML = `<span class="tooltiptext">Account disconnected</span>`;
+                container.appendChild(node);
+            }
+            document.getElementById(totalId).textContent = "0 total";
+        }
+
+        function assembleSolvedFeed() {
+            const container = document.getElementById('recent-activities-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const themeBadges = {
+                github: { bg: 'bg-green-500/10 text-green-400 border-green-500/20', name: 'GitHub' },
+                leetcode: { bg: 'bg-amber-500/10 text-amber-400 border-amber-500/20', name: 'LeetCode' },
+                codeforces: { bg: 'bg-rose-500/10 text-rose-400 border-rose-500/20', name: 'Codeforces' }
+            };
+
+            const masterList = [
+                ...platformMetrics.github.records,
+                ...platformMetrics.leetcode.records,
+                ...platformMetrics.codeforces.records
+            ];
+
+            masterList.sort((a, b) => a.age - b.age);
+
+            if (masterList.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 text-slate-500 text-xs">
+                        <i data-lucide="ghost" class="w-6 h-6 mx-auto mb-2 text-slate-600 animate-bounce"></i>
+                        No live profile records connected.
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            const visibleSlice = masterList.slice(0, 5);
+            visibleSlice.forEach(item => {
+                const theme = themeBadges[item.platform];
+                const row = document.createElement('div');
+                row.className = "flex items-start justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-900/40 hover:bg-slate-900/30 transition text-xs gap-3 group";
+                
+                const timeStr = isNaN(item.age) || item.age < 1 
+                    ? "Just now" 
+                    : (item.age > 60 ? `${Math.floor(item.age/60)}h ago` : `${item.age}m ago`);
+
+                row.innerHTML = `
+                    <div class="flex items-start space-x-2 min-w-0">
+                        <div class="px-1.5 py-0.5 rounded text-[8px] font-bold border ${theme.bg} flex-shrink-0">
+                            ${theme.name}
+                        </div>
+                        <div class="min-w-0">
+                            <h4 class="font-semibold text-slate-200 group-hover:text-indigo-400 transition truncate max-w-[130px] md:max-w-xs" title="${item.title}">${item.title}</h4>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        <span class="text-[8px] border px-1 rounded ${item.status.style}">${item.status.text}</span>
+                        <span class="text-[8px] text-slate-500 font-mono">${timeStr}</span>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            const current = new Date();
+            document.getElementById('feed-last-updated').textContent = `Synchronized: ${current.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            lucide.createIcons();
+        }
+
+        function calculateMinutesAgo(pastDate) {
+            const diff = new Date() - pastDate;
+            const minutes = Math.floor(diff / 60000);
+            return minutes > 0 ? minutes : 0;
+        }
+
+        function triggerAcousticAlarm() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const track = [
+                    { hz: 587.33, ms: 0.2, delay: 0 },   // D5
+                    { hz: 659.25, ms: 0.2, delay: 0.12 }, // E5
+                    { hz: 880.00, ms: 0.2, delay: 0.24 }, // A5
+                    { hz: 1174.66, ms: 0.6, delay: 0.36 } // D6
+                ];
+
+                track.forEach(item => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(item.hz, audioCtx.currentTime + item.delay);
+                    
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + item.delay);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + item.delay + (item.ms || 0.4));
+                    
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    
+                    osc.start(audioCtx.currentTime + item.delay);
+                    osc.stop(audioCtx.currentTime + item.delay + (item.ms || 0.4));
+                });
+            } catch (err) {
+                console.warn("Acoustic node synthesis blocked", err);
+            }
+        }
+
+        function updateTimerDisplay() {
+            const display = document.getElementById('timer-display');
+            const h = Math.floor(timerSecondsRemaining / 3600);
+            const m = Math.floor((timerSecondsRemaining % 3600) / 60);
+            const s = timerSecondsRemaining % 60;
+            
+            display.textContent = h > 0 
+                ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+                : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+            const progressBar = document.getElementById('timer-progress');
+            const dashMax = 401.9;
+            const percentage = timerSecondsRemaining / timerInitialDuration;
+            progressBar.style.strokeDashoffset = dashMax * (1 - percentage);
+        }
+
+        function setTimerPreset(minutes) {
+            if (isTimerRunning) toggleTimer();
+            timerSecondsRemaining = minutes * 60;
+            timerInitialDuration = timerSecondsRemaining;
+            updateTimerDisplay();
+            
+            document.getElementById('timer-status').textContent = "Ready";
+            document.getElementById('timer-status').className = "text-[9px] uppercase text-indigo-400 font-semibold tracking-widest mt-0.5";
+            
+            document.getElementById('timer-input-h').value = Math.floor(minutes / 60) || '';
+            document.getElementById('timer-input-m').value = (minutes % 60) || '';
+            document.getElementById('timer-input-s').value = '';
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('btn-timer-toggle');
+            const label = document.getElementById('timer-status');
+            
+            if (isTimerRunning) {
+                clearInterval(timerInterval);
+                isTimerRunning = false;
+                btn.innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Start Session</span>`;
+                label.textContent = "Paused";
+                label.className = "text-[9px] uppercase text-amber-400 font-semibold tracking-widest mt-0.5";
+            } else {
+                const customH = parseInt(document.getElementById('timer-input-h').value) || 0;
+                const customM = parseInt(document.getElementById('timer-input-m').value) || 0;
+                const customS = parseInt(document.getElementById('timer-input-s').value) || 0;
+                const sumSeconds = (customH * 3600) + (customM * 60) + customS;
+                
+                if (sumSeconds > 0 && sumSeconds !== timerSecondsRemaining && timerSecondsRemaining === timerInitialDuration) {
+                    timerSecondsRemaining = sumSeconds;
+                    timerInitialDuration = sumSeconds;
+                }
+
+                if (timerSecondsRemaining <= 0) {
+                    showToast("Configure Limit", "Select or input a duration setup.", "error");
+                    return;
+                }
+
+                isTimerRunning = true;
+                btn.innerHTML = `<i data-lucide="pause" class="w-3.5 h-3.5"></i><span>Pause Session</span>`;
+                label.textContent = "Focus Coding...";
+                label.className = "text-[9px] uppercase text-green-400 font-semibold tracking-widest mt-0.5 animate-pulse";
+
+                timerInterval = setInterval(() => {
+                    if (timerSecondsRemaining > 0) {
+                        timerSecondsRemaining--;
+                        updateTimerDisplay();
+                    } else {
+                        clearInterval(timerInterval);
+                        isTimerRunning = false;
+                        triggerAcousticAlarm();
+                        showToast("TIMER COMPLETE!", "Focus interval finished. Take a break!", "alarm");
+                        resetTimer();
+                    }
+                }, 1000);
+            }
+            lucide.createIcons();
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            timerSecondsRemaining = timerInitialDuration;
+            updateTimerDisplay();
+            
+            document.getElementById('btn-timer-toggle').innerHTML = `<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Start Session</span>`;
+            document.getElementById('timer-status').textContent = "Ready";
+            document.getElementById('timer-status').className = "text-[9px] uppercase text-indigo-400 font-semibold tracking-widest mt-0.5";
+            lucide.createIcons();
+        }
+
+        async function dispatchAiRequest(systemPrompt, userQuery) {
+            const provider = userProfiles.activeModel || 'gemini';
+            const keys = userProfiles.apiKeys || {};
+            
+            try {
+                if (provider === 'gemini') {
+                    // Built-in proxy or User Key
+                    const apiKey = keys.gemini || ""; 
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                    const payload = {
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    };
+                    const res = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error(`Gemini API Error: ${res.status}`);
+                    const result = await res.json();
+                    return result.candidates?.[0]?.content?.parts?.[0]?.text || "Parsing error.";
+                } 
+                else if (provider === 'openai') {
+                    if (!keys.openai) throw new Error("Missing OpenAI API Key in configuration.");
+                    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${keys.openai}` },
+                        body: JSON.stringify({
+                            model: "gpt-4o",
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: userQuery }
+                            ]
+                        })
+                    });
+                    if (!res.ok) throw new Error(`OpenAI API Error: ${res.status}`);
+                    const result = await res.json();
+                    return result.choices[0]?.message?.content || "Parsing error.";
+                }
+                else if (provider === 'deepseek') {
+                    if (!keys.deepseek) throw new Error("Missing DeepSeek API Key in configuration.");
+                    const res = await fetch("https://api.deepseek.com/chat/completions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${keys.deepseek}` },
+                        body: JSON.stringify({
+                            model: "deepseek-coder",
+                            messages: [
+                                { role: "system", content: systemPrompt },
+                                { role: "user", content: userQuery }
+                            ]
+                        })
+                    });
+                    if (!res.ok) throw new Error(`DeepSeek API Error: ${res.status}`);
+                    const result = await res.json();
+                    return result.choices[0]?.message?.content || "Parsing error.";
+                }
+                else if (provider === 'anthropic') {
+                    if (!keys.anthropic) throw new Error("Missing Anthropic API Key in configuration.");
+                    const res = await fetch("https://api.anthropic.com/v1/messages", {
+                        method: "POST",
+                        headers: { 
+                            "Content-Type": "application/json", 
+                            "x-api-key": keys.anthropic,
+                            "anthropic-version": "2023-06-01",
+                            "anthropic-dangerous-direct-browser-access": "true" 
+                        },
+                        body: JSON.stringify({
+                            model: "claude-3-5-sonnet-20240620",
+                            max_tokens: 1024,
+                            system: systemPrompt,
+                            messages: [{ role: "user", content: userQuery }]
+                        })
+                    });
+                    if (!res.ok) throw new Error(`Anthropic API Error: ${res.status}`);
+                    const result = await res.json();
+                    return result.content[0]?.text || "Parsing error.";
+                }
+            } catch (error) {
+                // Handle CORS or Missing Key gracefully
+                let msg = error.message;
+                if (msg.includes("Failed to fetch")) {
+                    msg = `CORS Blocked: The provider (${provider}) refused browser connection. Try Gemini instead.`;
+                }
+                console.error("AI Router Exception:", error);
+                throw new Error(msg);
+            }
+        }
+
+        async function generateAuditReport() {
+            const chatMessages = document.getElementById('ai-chat-messages');
+            
+            const thinkingId = 'thinking-' + Date.now();
+            const thinkingBox = document.createElement('div');
+            thinkingBox.id = thinkingId;
+            thinkingBox.className = "bg-indigo-950/40 border border-indigo-500/20 p-2.5 rounded-xl text-slate-300 animate-pulse font-mono self-start text-xs";
+            thinkingBox.innerHTML = `<i data-lucide='loader-2' class='w-3 h-3 animate-spin inline mr-1.5'></i>Querying ${userProfiles.activeModel || 'Gemini'} model...`;
+            chatMessages.appendChild(thinkingBox);
+            lucide.createIcons();
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const recentVelocity = lineChartInstance ? lineChartInstance.data.datasets[0].data.slice(-7).join(', ') : 'N/A';
+            const systemPrompt = "You are CodePulse AI, an advanced developer companion. Generate a concise, 4-sentence daily briefing for this developer based on their stats. Analyze their recent daily activity trend, suggest what to focus on today (e.g., data structures vs pushing to repos), and weave in a motivational tech trend, tech news, or competitive programming reference (like ICPC or upcoming hackathons). Be highly technical, helpful, and encouraging.";
+            const userQuery = `Programmer Profile Context:
+            - GitHub handle: "${userProfiles.github}" with real total of ${platformMetrics.github.total} commits
+            - LeetCode handle: "${userProfiles.leetcode}" with real total of ${platformMetrics.leetcode.total} solved problems
+            - Codeforces handle: "${userProfiles.codeforces}" with real total of ${platformMetrics.codeforces.total} solved solutions
+            - Recent 7-Day Activity Trend: [${recentVelocity}]`;
+
+            try {
+                const output = await dispatchAiRequest(systemPrompt, userQuery);
+
+                document.getElementById(thinkingId).remove();
+
+                const reportBox = document.createElement('div');
+                reportBox.className = "bg-slate-900 border border-indigo-500/30 p-3 rounded-xl text-slate-200 leading-relaxed font-sans self-start";
+                reportBox.innerHTML = `<strong>💼 CodePulse Daily Briefing:</strong><br><p class="mt-1.5 text-[11px] text-slate-300">${output}</p>`;
+                chatMessages.appendChild(reportBox);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById(thinkingId).remove();
+                showToast("Audit Error", err.message, "error");
+            }
+        }
+
+        async function sendAiMessage() {
+            const input = document.getElementById('ai-chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+            const chatMessages = document.getElementById('ai-chat-messages');
+
+            // Render User Message
+            const userBox = document.createElement('div');
+            userBox.className = "bg-slate-800 p-2.5 rounded-xl text-right text-indigo-300 border border-slate-750 max-w-[85%] self-end ml-auto text-xs";
+            userBox.textContent = message;
+            chatMessages.appendChild(userBox);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const loaderId = 'ai-load-' + Date.now();
+            const loaderBox = document.createElement('div');
+            loaderBox.id = loaderId;
+            loaderBox.className = "bg-indigo-950/20 border border-indigo-500/10 p-2 rounded-xl text-slate-400 self-start animate-pulse max-w-[85%] text-xs font-mono";
+            loaderBox.innerHTML = `<i data-lucide='loader-2' class='w-3 h-3 animate-spin inline mr-1.5'></i>Analyzing with ${userProfiles.activeModel || 'Gemini'}...`;
+            chatMessages.appendChild(loaderBox);
+            lucide.createIcons();
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            const recentVelocity = lineChartInstance ? lineChartInstance.data.datasets[0].data.slice(-7).join(', ') : 'N/A';
+            const systemPrompt = "You are CodePulse AI, a comprehensive technical companion and pair-programmer. You have real-time access to the user's coding footprint. Your role is to analyze their daily activity, discuss algorithms and code architecture, and provide the latest updates on tech news, global hackathons, and ICPC programming contests. Address the user directly as a fellow developer, offering insightful, technical, and up-to-date responses.";
+            const userQuery = `Programmer Profile Context:
+            - GitHub commits: ${platformMetrics.github.total}
+            - LeetCode solved: ${platformMetrics.leetcode.total}
+            - Codeforces solved: ${platformMetrics.codeforces.total}
+            - Recent 7-Day Activity Trend: [${recentVelocity}]
+            
+            Question: "${message}"`;
+
+            try {
+                const text = await dispatchAiRequest(systemPrompt, userQuery);
+
+                document.getElementById(loaderId).remove();
+
+                const aiBox = document.createElement('div');
+                aiBox.className = "bg-indigo-950/25 border border-indigo-500/15 p-2.5 rounded-xl text-slate-200 self-start max-w-[90%] text-xs leading-relaxed";
+                
+                // Extremely basic markdown bold parser for aesthetics
+                const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                aiBox.innerHTML = formattedText;
+                
+                chatMessages.appendChild(aiBox);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById(loaderId).remove();
+                showToast("Network Error", err.message, "error");
+            }
+        }
+
+        function showToast(title, description, statusType = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `glass-panel p-4 rounded-xl shadow-xl flex items-start space-x-3 transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto border-l-4 max-w-sm w-full`;
+            
+            let boundaryClass = 'border-indigo-500 text-indigo-400';
+            let iconCode = 'info';
+            
+            if (statusType === 'success') {
+                boundaryClass = 'border-green-500 text-green-400';
+                iconCode = 'check-circle';
+            } else if (statusType === 'error') {
+                boundaryClass = 'border-rose-500 text-rose-400';
+                iconCode = 'alert-triangle';
+            } else if (statusType === 'alarm') {
+                boundaryClass = 'border-amber-500 text-amber-400 animate-bounce';
+                iconCode = 'bell-ring';
+            }
+
+            toast.classList.add(...boundaryClass.split(' '));
+            toast.innerHTML = `
+                <div class="p-1 rounded-md bg-slate-900/55">
+                    <i data-lucide="${iconCode}" class="w-4 h-4"></i>
+                </div>
+                <div class="flex-grow">
+                    <h5 class="text-xs font-bold text-slate-100">${title}</h5>
+                    <p class="text-[10px] text-slate-300 mt-0.5 leading-relaxed">${description}</p>
+                </div>
+                <button class="text-slate-500 hover:text-slate-300 transition" onclick="this.parentElement.remove()">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 50);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-10px]', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 5500);
+        }
+
+        function openProfileModal() {
+            const modal = document.getElementById('profile-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 50);
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profile-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function handleProfileSubmit(event) {
+            event.preventDefault();
+            const update = {
+                github: document.getElementById('input-github').value.trim(),
+                leetcode: document.getElementById('input-leetcode').value.trim(),
+                codeforces: document.getElementById('input-codeforces').value.trim(),
+                activeModel: document.getElementById('ai-model-selector')?.value || 'gemini',
+                apiKeys: {
+                    gemini: document.getElementById('input-key-gemini').value.trim(),
+                    openai: document.getElementById('input-key-openai').value.trim(),
+                    deepseek: document.getElementById('input-key-deepseek').value.trim(),
+                    anthropic: document.getElementById('input-key-anthropic').value.trim()
+                }
+            };
+            
+            // Only resync dashboard data if developer handles changed
+            const needDashboardSync = (update.github !== userProfiles.github) || 
+                                      (update.leetcode !== userProfiles.leetcode) || 
+                                      (update.codeforces !== userProfiles.codeforces);
+
+            saveProfiles(update, needDashboardSync);
+            closeProfileModal();
+        }
+
+        // Modified saveProfiles to handle selective syncing
+        function saveProfiles(newProfiles, triggerSync = true) {
+            userProfiles = { ...newProfiles };
+            localStorage.setItem('codepulse_profiles_v3', JSON.stringify(userProfiles));
+            updateProfileUI();
+            
+            if (triggerSync) {
+                syncAllPlatformsData();
+                showToast("Sync Initiated", "Saving profile configurations and triggering network requests.", "success");
+            } else {
+                showToast("Saved", "Configuration updated successfully.", "success");
+            }
+        }
+
+        window.onload = function() {
+            initRealtimeClock();
+            initCharts();
+            loadProfiles();
+            syncAllPlatformsData();
+            updateTimerDisplay();
+
+            lucide.createIcons();
+            showToast("System Online", "CodePulse metrics synchronization active.", "success");
+        };
+    </script>
+</body>
+</html>
